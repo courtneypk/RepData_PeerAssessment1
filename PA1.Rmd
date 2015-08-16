@@ -11,24 +11,18 @@ keep_md: yes
 ## format defaulting to scientific notation.
 options(scipen = 5, digits = 2)
 ```
-
 ## Loading and preprocessing the data
 
-```{r load and process, echo=TRUE, cache=TRUE, warning=FALSE}
+
+```{r load and process, echo=TRUE, cache=TRUE}
 fit <- read.csv("activity.csv", header=TRUE)
 summary(fit)
-library(plyr)
-library(dplyr)
-library(ggplot2)
-
 ```
 
-I did not see the need for pre-processing at this point in time.
-
 ## What is mean total number of steps taken per day?
-
-
 ```{r mean and total steps, echo=TRUE}
+library(plyr)
+library(dplyr)
 by_date_fit <- group_by(fit, date)
 tot_steps <- summarise(by_date_fit, steps=sum(steps))
 summary(tot_steps)
@@ -99,21 +93,3 @@ Second, let's look at the mean and the median. Our new imputed mean is `r mean_s
 It would appear that imputing values based on the overall mean at the interval level of selection produces very good agreement with the non-imputed values.
 
 ## Are there differences in activity patterns between weekdays and weekends?
-
-So here we will use the dataset with imputed values, fit_imputed. We will add a variable of type Factor with values of "weekday" or "weekend" depending on whether the date falls on Monday through Friday or on Saturday to Sunday. We will then create a time series plot across the intervals to compare the activity over the day on a weekday and a weekend.
-
-```{r echo=TRUE}
-
-##Let's first convert the date from a factor to a date
-fit_imputed$date <- as.Date(fit_imputed$date)
-fit_imputed <- mutate(fit_imputed, weekday = ifelse( weekdays(date) %in% c("Sunday", "Saturday"), "Weekend", "Weekday") )
-fit_imputed <- mutate(fit_imputed, weekday = as.factor(weekday)) #converts weekday to factor
-
-p <- ggplot(fit_imputed, aes(interval, steps), ylab="Number of Steps", xlab="Interval") + geom_line()
-p + facet_grid(weekday ~ .)
-
-```
-
-Although this plot doesn't look exactly the same as the one provide, I believe this does still give us the ability to make some overall observations. one is that there is much more activity on the weekdays starting just after 5:00 am (interval 500), whereas on the weekend it looks like activity is more likely to increase at around 8:00 am. Secondly, the activity on a weekday seems to be somewhat shifted to the earlier hours and is reduced in the evenings, whereas on the weekends, the activity is shifted to the later hours of the afternoon and evening.
-
-
