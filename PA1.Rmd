@@ -1,7 +1,7 @@
 ---
 title: 'Reproducible Research: Peer Assessment 1'
 author: "Paul K. Courtney"
-date: "August 16, 2015"
+date: "September 20, 2016"
 output: html_document
 keep_md: yes
 ---
@@ -11,38 +11,49 @@ keep_md: yes
 ## format defaulting to scientific notation.
 options(scipen = 5, digits = 2)
 ```
-## Loading and preprocessing the data
+
+```{r load libraries, results='hide', message=FALSE}
+library(plyr)
+library(dplyr)
+library(ggplot2)
+```
+### Loading and preprocessing the data
 
 
 ```{r load and process, echo=TRUE, cache=TRUE}
 fit <- read.csv("activity.csv", header=TRUE)
-summary(fit)
+# summary(fit)
 ```
 
-## What is mean total number of steps taken per day?
+### What is the total number of steps taken per day as well as the mean and median?
+
+Here we will need to group the fitness data in the dataframe "fit" by the date and then take a sum for each date in the dataset. This data gets plotted in a histogram and the mean and median stats are reported below the plot.
 ```{r mean and total steps, echo=TRUE}
-library(plyr)
-library(dplyr)
 by_date_fit <- group_by(fit, date)
 tot_steps <- summarise(by_date_fit, steps=sum(steps))
-summary(tot_steps)
-hist(tot_steps$steps, freq=TRUE, main="Histogram of Total Number of Steps in a Day", xlab="Total Number of Steps in a Day", ylab="Frequency", ylim=c(0,30))
 mean_steps <- mean(tot_steps$steps, na.rm=TRUE)
 median_steps <- median(tot_steps$steps, na.rm=TRUE)
+g <- ggplot(data=tot_steps, mapping=aes(steps)) + 
+    geom_histogram(na.rm=TRUE, binwidth = 500, show.legend = TRUE)
+g + theme_light() + xlab("Number of Steps Taken per Day") + ylab("Frequency") + 
+    ggtitle("Histogram of Total Number of Steps Taken Each Day") + geom_vline(xintercept = mean_steps, color="red") +
+    geom_vline(xintercept = median_steps, color="blue")
 ```
 
-The mean value of the total number of the steps taken each day is `r round(mean_steps, 2)` and the median value is `r median_steps`.
+You can see by inspection that the histogram is roughly symmetrically normal. This intuition is validated by calculation of the mean and median. The mean value of the total number of the steps taken each day is `r round(mean_steps, 2)` and the median value of the total number of the steps taken each day is `r median_steps`.  
 
+### What is the average daily activity pattern?
+#### In other words, on average how many steps are taken at different timepoints during the day?
 
-## What is the average daily activity pattern?
-
-So here we will need to rearrange the dataset "fit" in order to view the data as an average of the number of steps for each 5-minute interval of the day. The dataset we want will have columns "interval" and "steps".
+Here we will need to group the dataset "fit" by the variable "interval"" in order to view the data as an average of the number of steps for each 5-minute period of the day. The dataset we want will have columns "interval" and "steps".
 
 ```{r, echo=TRUE}
 by_interval_fit <- group_by(fit, interval)
 mean_interval <- summarise(by_interval_fit, steps=mean(steps, na.rm=TRUE))
 max_interval <- mean_interval[ mean_interval$steps == max(mean_interval$steps, na.rm=TRUE), ]$interval
-plot(mean_interval$interval, mean_interval$steps, type="l", xlab="Index of the 5-minute interval\n", ylab="Mean number of steps in each 5-minute interval", main="Time-series of the Average Number of Steps\n per 5-minute Interval During the Day", col="dark red")
+g2 <- ggplot(mean_interval, mapping = aes(interval, steps))
+g2 + geom_line(color="blue") + ylab("Average number of steps in each 5-minute interval") +
+    xlab("Time of day") + scale_x_continuous(breaks=c(0,600,1200,1800,2400), labels=c("12:00am","6:00am","12:00pm","6:00pm","12:00am")) + ggtitle("Time-series of the Average Number of Steps\n per 5-minute Interval During the Day")
 ```
 
 The 5 minute interval that has the maximum average number of steps is `r max_interval`.

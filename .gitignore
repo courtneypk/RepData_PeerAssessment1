@@ -4,6 +4,7 @@
 .RData
 .Ruserdata
 *.Rproj
+Scratchpad.R
 
 # Data sources
 activity.csv
