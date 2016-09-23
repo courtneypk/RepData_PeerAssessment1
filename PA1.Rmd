@@ -16,13 +16,13 @@ options(scipen = 5, digits = 2)
 library(plyr)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
 ```
 ### Loading and preprocessing the data
 
 
 ```{r load and process, echo=TRUE, cache=TRUE}
 fit <- read.csv("activity.csv", header=TRUE)
-# summary(fit)
 ```
 
 ### What is the total number of steps taken per day as well as the mean and median?
@@ -36,7 +36,8 @@ median_steps <- median(tot_steps$steps, na.rm=TRUE)
 g <- ggplot(data=tot_steps, mapping=aes(steps)) + 
     geom_histogram(na.rm=TRUE, binwidth = 500, show.legend = TRUE)
 g + theme_light() + xlab("Number of Steps Taken per Day") + ylab("Frequency") + 
-    ggtitle("Histogram of Total Number of Steps Taken Each Day") + geom_vline(xintercept = mean_steps, color="red") +
+    ggtitle("Histogram of Total Number of Steps Taken Each Day") + 
+    geom_vline(xintercept = mean_steps, color="red") +
     geom_vline(xintercept = median_steps, color="blue")
 ```
 
@@ -53,26 +54,26 @@ mean_interval <- summarise(by_interval_fit, steps=mean(steps, na.rm=TRUE))
 max_interval <- mean_interval[ mean_interval$steps == max(mean_interval$steps, na.rm=TRUE), ]$interval
 g2 <- ggplot(mean_interval, mapping = aes(interval, steps))
 g2 + geom_line(color="blue") + ylab("Average number of steps in each 5-minute interval") +
-    xlab("Time of day") + scale_x_continuous(breaks=c(0,600,1200,1800,2400), labels=c("12:00am","6:00am","12:00pm","6:00pm","12:00am")) + ggtitle("Time-series of the Average Number of Steps\n per 5-minute Interval During the Day")
+    xlab("Time of day") + scale_x_continuous(breaks=c(0,600,1200,1800,2400), labels=c("12:00am","6:00am","12:00pm","6:00pm","12:00am")) + 
+    ggtitle("Time-series of the Average Number of Steps\n per 5-minute Interval During the Day")
 ```
 
 The 5 minute interval that has the maximum average number of steps is `r max_interval`.
 
-## Imputing missing values
+### Imputing missing values
 
 The presence of missing days may introduce bias into some calculations or summaries of the data. So let's calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 'NA's). When we loaded and pre-processed the data we saw that the only column with NA's is 'steps'. In any case, we can use the function "complete.cases" to return a boolean vector where "TRUE"" indicates that the variable step is not 'NA' and "FALSE" indicates that step is 'NA'.
 
+So, since TRUE values will be converted to "1" and FALSE values to "0" we can use the function "sum" to infer the number of complete cases. We can simply subtract the number of complete cases from the total number of cases (length of the vector) to arrive at the number of incomplete cases.
+
 ```{r echo=TRUE}
 fit_complete <- complete.cases(fit)
-## Since TRUE values will be converted to "1" and FALSE values to "0" we can use the function "sum" to infer the number 
-## of complete cases. We can simply subtract the number of complete cases from the total number of cases (length of the
-## vector) to arrive at the number of incomplete cases.
 fit_NA <- length(fit_complete) - sum(fit_complete)
 ```
 
 The total number of incomplete cases (i.e. those with NA in one or more columns) is `r fit_NA`.
 
-So we can impute values for NA, meaning replace the missing value with one that is somehow representative of what the data might be at that interval. I will select the mean for that particular interval across all dates. We already have that value calculated from the section about the Daily Activity Pattern. So we can just replace the 'NA' value with the mean value from the data frame 'mean_interval' for that interval.
+So we can impute values for NA, meaning replace the missing value with one that is somehow representative of what the data might be at that interval. Let's select the mean for that particular interval across all dates. We already have that value calculated from the section about the Daily Activity Pattern. So we can just replace the 'NA' value with the mean value from the data frame 'mean_interval' for that interval.
 
 ```{r echo=TRUE}
 ## First merge the datasets fit and mean_interval on the variable interval
@@ -92,7 +93,10 @@ Now we have a new dataset, fit_NA_imputed, from which we can produce a histogram
 by_date_fit_imputed <- group_by(fit_imputed, date)
 tot_steps_imputed <- summarise(by_date_fit_imputed, steps=sum(steps))
 
-hist(tot_steps_imputed$steps, freq=TRUE, main="Histogram of Total Number of Steps (Imputed) in a Day", xlab="Total Number of Imputed Steps in a Day", ylab="Frequency")
+g3 <- ggplot(tot_steps_imputed, mapping = aes(steps)) +
+    geom_histogram(na.rm=TRUE, binwidth = 500, show.legend = TRUE)
+g3 + theme_light() + xlab("Total Number of Imputed Steps Taken per Day") + ylab("Frequency") + 
+    ggtitle("Histogram of Total Number of Steps (Imputed) Taken Each Day")
 mean_steps_imputed <- mean(tot_steps_imputed$steps)
 median_steps_imputed <- median(tot_steps_imputed$steps)
 ```
@@ -103,4 +107,36 @@ Second, let's look at the mean and the median. Our new imputed mean is `r mean_s
 
 It would appear that imputing values based on the overall mean at the interval level of selection produces very good agreement with the non-imputed values.
 
-## Are there differences in activity patterns between weekdays and weekends?
+### Are there differences in activity patterns between weekdays and weekends?
+
+Here we use the imputed data. We split the data by labeling dates as either "weekend" or "weekday" and then we plot the steps vs. time of day data as before and enable a visual comparison.
+
+```{r echo=TRUE}
+# Take the dataframe fit_imputed with imputed step values and group the data by interval
+by_interval_fit_imputed <- group_by(fit_imputed, interval)
+# Need to add in a column identifying the date as a weekday or weekend using the function weekdays(). First set all to "weekday":
+by_interval_fit_imputed <- mutate(by_interval_fit_imputed, day_names=weekdays(as_date(as.character(date))))
+by_interval_fit_imputed <- mutate(by_interval_fit_imputed, day_type="weekday") # Initial assignment
+# Now assign the value "weekend" for Saturday and Sunday:
+by_interval_fit_imputed[which(by_interval_fit_imputed$day_names %in% c("Saturday","Sunday")), ]$day_type <- "weekend"
+# Finally convert the character to factor:
+by_interval_fit_imputed$day_type <- factor(by_interval_fit_imputed$day_type) # Convert character to factor
+```
+I now have the days factored into weekday and weekend. I now use this in a paneled plot to show the differences in timeplots between weekend and weekday.
+
+```{r echo=TRUE}
+by_int_fit_imp_wend <- filter(by_interval_fit_imputed, day_type == "weekend")
+by_int_fit_imp_wday <- filter(by_interval_fit_imputed, day_type == "weekday")
+
+mean_int_imp_wend <- summarise(by_int_fit_imp_wend, steps=mean(steps, na.rm=TRUE)) # Average number of steps taken at a particular timepoint
+mean_int_imp_wend$day_type <- "Weekend"
+mean_int_imp_wday <- summarise(by_int_fit_imp_wday, steps=mean(steps, na.rm=TRUE)) # Average number of steps taken at a particular timepoint
+mean_int_imp_wday$day_type <- "Weekday"
+mean_int_imp_alldays <- as.data.frame(rbind(mean_int_imp_wday, mean_int_imp_wend))
+
+g4 <- ggplot(mean_int_imp_alldays, mapping = aes(x=interval,y=steps)) + geom_line(color="blue")
+g4 + facet_grid(day_type ~ .) + ylab("Average number of steps in each 5-minute interval") +
+    xlab("Time of day") + scale_x_continuous(breaks=c(0,600,1200,1800,2400), labels=c("12:00am","6:00am","12:00pm","6:00pm","12:00am")) + 
+    ggtitle("Time-series of the Average Number of Steps\n per 5-minute Interval During the Day")
+
+```
